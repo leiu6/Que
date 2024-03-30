@@ -5,5 +5,6 @@
 
 #define QUE_INDENT_WIDTH 4
 #define QUE_MAX_INDENT (QUE_BYTE_MAX + 1)
+#define QUE_MAXLINE 1024
 
 #endif /* QUE_DEFS_H */

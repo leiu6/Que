@@ -34,6 +34,7 @@ static char peek() {
 }
 
 static char advance() {
+        state.at_line_begin = QUE_FALSE;
         state.col++;
         return (*state.current == '\0') ? '\0' : *state.current++;
 }
@@ -67,6 +68,10 @@ static void token_error(Token *out_token, const char *msg) {
 static int token_indentation(Token *out_token) {
         Que_Word spaces = 0;
         Que_Byte indent_level;
+
+        if (!state.at_line_begin) {
+                return QUE_FALSE;
+        }
 
         while (peek() == ' ') {
                 advance();
@@ -217,8 +222,11 @@ void lexer_next(Token *out_token) {
                 }
         }
 
-        state.start = state.current;
-        c = advance();
+        c = peek();
+        do {
+                state.start = state.current;
+                c = advance();
+        } while (c == ' ');
 
         switch (c) {
         case '(': token_simple(out_token, TOK_OPEN_PAREN); return;
@@ -226,6 +234,7 @@ void lexer_next(Token *out_token) {
         case '[': token_simple(out_token, TOK_OPEN_BRACKET); return;
         case ']': token_simple(out_token, TOK_CLOSE_BRACKET); return;
         case ',': token_simple(out_token, TOK_COMMA); return;
+        case '.': token_simple(out_token, TOK_DOT); return;
         case ':': token_simple(out_token, TOK_COLON); return;
         case '+': token_simple(out_token, TOK_PLUS); return;
         case '-': token_simple(out_token, TOK_MINUS); return;

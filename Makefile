@@ -3,11 +3,11 @@ CC := clang
 CFLAGS := -Wall -Werror -pedantic -std=c90 -fsanitize=address,undefined -Iinclude/
 LDFLAGS := -lm
 
-SRCS := main.c lexer.c
+SRCS := main.c lexer.c chunk.c memory.c state.c value.c vm.c table.c parser.c io.c
 DEPS :=
-OBJS := main.o lexer.o
+OBJS := main.o lexer.o chunk.o memory.o state.o value.o vm.o table.o parser.o io.o
 
-VPATH = src/ include/
+VPATH = src/ src/stdlib/ include/
 
 .PHONY: all
 

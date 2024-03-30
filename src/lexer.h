@@ -8,7 +8,7 @@
         X(TOK_OPEN_BRACKET), X(TOK_CLOSE_BRACKET),\
         X(TOK_INDENT), X(TOK_DEDENT),\
         \
-        X(TOK_COMMA), X(TOK_COLON),\
+        X(TOK_COMMA), X(TOK_COLON), X(TOK_DOT),\
         \
         X(TOK_PLUS), X(TOK_MINUS), X(TOK_STAR), X(TOK_STAR_STAR), X(TOK_SLASH),\
         X(TOK_GR), X(TOK_GREQ), X(TOK_LE), X(TOK_LEQ), X(TOK_LSHIFT), X(TOK_RSHIFT),\
