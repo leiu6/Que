@@ -9,7 +9,7 @@
 #include "opcodes.h"
 #include "value_internal.h"
 
-#define MAX_LOCALS 256
+#define MAX_LOCALS (QUE_BYTE_MAX + 1)
 
 typedef struct {
         Token name;
@@ -29,7 +29,7 @@ struct Compiler {
         ScopeType type;
 
         Local locals[MAX_LOCALS];
-        int num_locals;
+        int local_count;
         int scope_depth;
 };
 
@@ -47,18 +47,27 @@ static struct {
         Compiler *current_compiler;
 } state;
 
-static void init_compiler(Compiler *enclosing, Compiler *c, ScopeType type, int arity, const char *funcname, size_t len) {
+static void error(const char *format, ...);
+
+static void token_stringify(Que_Value *out_string, Token *token) {
+        Que_ValueString(out_string, token->start, token->length);
+}
+
+static void init_compiler(Compiler *enclosing, Compiler *c, Token *identifier_token) {
         Local *local;
+        Que_Value identifier;
+
+        token_stringify(&identifier, identifier_token);
 
         c->enclosing = enclosing;
 
-        c->func = allocate_function(arity, funcname, len);
-        c->type = type;
-        c->num_locals = 0;
+        c->func = allocate_function(&identifier);
+        c->type = (c->enclosing) ? SCOPE_FUNCTION : SCOPE_SCRIPT;
+        c->local_count = 0;
         c->scope_depth = 0;
         state.current_compiler = c;
 
-        local = &state.current_compiler->locals[state.current_compiler->num_locals++];
+        local = &state.current_compiler->locals[state.current_compiler->local_count++];
         local->depth = 0;
         local->name.start = "";
         local->name.length = 0;
@@ -66,6 +75,75 @@ static void init_compiler(Compiler *enclosing, Compiler *c, ScopeType type, int 
 
 static Chunk *current_chunk() {
         return &state.current_compiler->func->code;
+}
+
+static int identifiers_equal(Token *id1, Token *id2) {
+        if (id1->length != id2->length) {
+                return QUE_FALSE;
+        }
+
+        return memcmp(id1->start, id2->start, id1->length) == 0;
+}
+
+/**
+ * Adds a local variable to the current scope
+*/
+static void add_local(Token *name) {
+        Local *local = NULL;
+
+        if (state.current_compiler->local_count == MAX_LOCALS) {
+                error("Too many local variables in function");
+                return;
+        }
+
+        local = &state.current_compiler->locals[state.current_compiler->local_count++];
+
+        local->name = *name;
+        local->depth = -1; /* Uninitialized */
+}
+
+static void mark_local_initialized() {
+        state.current_compiler->locals[state.current_compiler->local_count - 1].depth =
+                state.current_compiler->scope_depth;
+}
+
+/**
+ * Determines whether we are able to create a local variable at the current scope
+*/
+static int does_it_exist(Token *name) {
+        /* TODO: prevent shadowing */
+        int i;
+        for (i = state.current_compiler->local_count - 1; i >= 0; i--) {
+                Local *local = &state.current_compiler->locals[i];
+
+                if (local->depth != -1 && local->depth < state.current_compiler->scope_depth) {
+                        break;
+                }
+
+                if (identifiers_equal(name, &local->name)) {
+                        error("a variable already exists with the name %.*s in this scope", local->name.length, local->name.start);
+                        return 1;
+                }
+        }
+
+        return 0;
+}
+
+static int resolve_local(Token *name) {
+        int i;
+        for (i = state.current_compiler->local_count - 1; i >= 0; i--) {
+                Local local = state.current_compiler->locals[i];
+
+                if (identifiers_equal(&local.name, name)) { /* Find match? */
+                        if (local.depth == -1) {
+                                error("Cannot read uninitialized variable %.*s", local.name.length, local.name.start);
+                        }
+
+                        return i;
+                }
+        }
+
+        return -1;
 }
 
 static void emit(Que_Byte b) {
@@ -90,6 +168,13 @@ void begin_scope() {
 
 void end_scope() {
         state.current_compiler->scope_depth--;
+
+	while (state.current_compiler->local_count > 0 &&
+	       state.current_compiler->locals[state.current_compiler->local_count - 1].depth >
+	       state.current_compiler->scope_depth) {
+		emit(OP_POP);
+		state.current_compiler->local_count--;
+	}
 }
 
 static Que_FunctionObject *end_compiler() {
@@ -120,14 +205,18 @@ static int match(TokenType type) {
         return QUE_FALSE;
 }
 
-static void error(const char *format, ...);
+static int peek(TokenType type);
 
 void advance(void) {
         state.previous = state.current;
-        lexer_next(&state.current);
 
-        if (match(TOK_ERROR)) {
-                error("%.*s", state.previous.length, state.previous.start);
+        for (;;) {
+                lexer_next(&state.current);
+                if (!peek(TOK_ERROR)) {
+                        break;
+                }
+
+                error("%.*s", state.current.length, state.current.start);
         }
 }
 
@@ -156,11 +245,9 @@ void vferror(const char *format, va_list args) {
         fprintf(stderr, "%s:%zu:%zu: ", state.filename, line, col);
         vfprintf(stderr, format, args);
         fprintf(stderr, "\n");
-
-        advance();
 }
 
-static int peek(TokenType type) {
+int peek(TokenType type) {
         return state.current.type == type;
 }
 
@@ -185,6 +272,21 @@ void parser_init(const char *filename, const char *source) {
 }
 
 void parse_expression();
+void parse_primary();
+
+void parse_table_access() {
+        Token field = state.current;
+        Que_Value v;
+        consume(TOK_IDENTIFIER, "Expected identifier for table access");
+
+        v.type = QUE_TYPE_STRING;
+        v.value.o = (Que_Object *)allocate_string(field.start, field.length);
+
+        emit(OP_PUSH);
+        emit_constant(&v);
+
+        emit(OP_TABLE_GET);
+}
 
 void parse_primary() {
         if (match(TOK_INT)) {
@@ -201,12 +303,23 @@ void parse_primary() {
                 emit_constant(&v);
         } else if (match(TOK_IDENTIFIER)) {
                 Token identifier = state.previous;
-                Que_Value str;
-                str.type = QUE_TYPE_STRING;
-                str.value.o = (Que_Object *)allocate_string(identifier.start, identifier.length);
+		int slot = resolve_local(&identifier);
 
-                emit(OP_GET_GLOBAL);
-                emit_constant(&str);
+                if (slot == -1) {
+                        Que_Value str;
+                        token_stringify(&str, &identifier);
+
+                        emit(OP_GET_GLOBAL);
+                        emit_constant(&str);
+                } else {
+                        emit(OP_GET_LOCAL);
+                        emit_word(slot);
+                }
+
+                if (match(TOK_DOT)) {
+                        parse_table_access();
+                }
+
         } else if (match(TOK_STRING)) {
                 Que_Value val;
                 val.type = QUE_TYPE_STRING;
@@ -231,42 +344,26 @@ void parse_primary() {
         } else {
                 error("unexpected %.*s", state.current.length, state.current.start);
         }
-}
 
-void parse_access_call() {
-        parse_primary();
+        if (match(TOK_OPEN_PAREN)) {
+                Que_Word argc = 0;
 
-        for (;;) {
-                if (match(TOK_DOT)) {
-                        Token field = state.current;
-                        Que_Value v;
-                        consume(TOK_IDENTIFIER, "expected identifier for table field");
-
-                        v.type = QUE_TYPE_STRING;
-                        v.value.o = (Que_Object *)allocate_string(field.start, field.length);
-
-                        emit(OP_PUSH);
-                        emit_constant(&v);
-
-                        emit(OP_TABLE_GET);
-                } else if (match(TOK_COLON)) {
-                        Que_Word arity = 0;
-
-                        /* Basically, we are pushing arguments to the stack */
+                if (!peek(TOK_CLOSE_PAREN)) {
                         for (;;) {
+                                argc++;
                                 parse_expression();
-                                arity++;
                                 if (!match(TOK_COMMA)) {
                                         break;
                                 }
                         }
-
-                        emit(OP_CALL);
-                        emit_word(arity);
-                } else {
-                        break;
                 }
-        } 
+
+                consume(TOK_CLOSE_PAREN, "expected ')' after function call");
+
+                /* Code */
+                emit(OP_CALL);
+                emit_word(argc);
+        }
 }
 
 void parse_prefix() {
@@ -280,7 +377,7 @@ void parse_prefix() {
                 parse_prefix();
                 emit(OP_NEGATE);
         } else {
-                parse_access_call();
+                parse_primary();
         }
 }
 
@@ -402,79 +499,106 @@ void parse_expression() {
 
 static void parse_block();
 
-void parse_var_declaration() {
-        Token identifier = state.current;
-        Que_Value str;
+void declare_variable() {
+        Que_Value identifier;
 
         consume(TOK_IDENTIFIER, "expected identifier for variable");
-        
+
+        if (state.current_compiler->type == SCOPE_FUNCTION) {
+                /**
+                 * If we are in a function, then this is a local variable
+                 * 
+                 * We:
+                 * - check if it already exists, if so print error
+                 * - if it does not exist, we add it to the locals table
+                 * - we return, no instruction need to be emitted
+                */
+                if (!does_it_exist(&state.previous)) {
+                        add_local(&state.previous);
+                }
+                return;
+        }
+
+        token_stringify(&identifier, &state.previous);
+
+        emit(OP_DEFINE_GLOBAL);
+        emit_constant(&identifier);
+}
+
+void define_variable() {
+        parse_expression();
+}
+
+void parse_var_declaration() {
+        declare_variable();
+
         if (match(TOK_EQUAL)) {
-                parse_expression();
+                define_variable();
         } else {
                 emit(OP_PUSH_NIL);
         }
 
-        consume(TOK_EOL, "expected newline after variable declaration");
+        /**
+         * If this is a local, we must mark it initialized now
+        */
+        if (state.current_compiler->type == SCOPE_FUNCTION) {
+                mark_local_initialized();
+        }
 
-        emit(OP_SET_GLOBAL);
+        printf("Type: %s\n", TOKEN_NAMES[state.current.type]);
 
-        str.type = QUE_TYPE_STRING;
-        str.value.o = (Que_Object *)allocate_string(identifier.start, identifier.length);
-        emit_constant(&str);
+        consume(TOK_EOL, "expected newline");
 }
 
 void parse_declaration();
 
-void parse_function_declaration() {
-        Compiler compiler;
-        Token identifier = state.current;
+static int parse_function_args(void) {
         int arity = 0;
-        Que_FunctionObject *func;
-        Que_Value func_identifier_value;
-        Que_Value function_value;
-        function_value.type = QUE_TYPE_FUNCTION;
 
-        printf("Identifier: %.*s\n", (int)identifier.length, identifier.start);
+        consume(TOK_OPEN_PAREN, "expected '('");
 
-        consume(TOK_IDENTIFIER, "expected function identifier");
-        init_compiler(state.current_compiler, &compiler, SCOPE_FUNCTION, 0, identifier.start, identifier.length);
-
-        if (!peek(TOK_COLON)) {
-                for (;;) {
-                        consume(TOK_IDENTIFIER, "expected identifier for argument");
+        if (!peek(TOK_CLOSE_PAREN)) {
+                do {
+                        declare_variable();
+                        mark_local_initialized();
                         arity++;
-
-                        if (match(TOK_COMMA)) {
-                                continue;
-                        } else {
-                                break;
-                        }
-                }
+                } while (match(TOK_COMMA));
         }
 
-        compiler.func->arity = arity;
+        consume(TOK_CLOSE_PAREN, "expected ')'");
+
+        return arity;
+}
+
+void parse_function_declaration() {
+        Compiler compiler;
+        Que_Value identifier;
+        Que_Value function;
+
+        consume(TOK_IDENTIFIER, "expected function identifier");
+        token_stringify(&identifier, &state.previous);
+
+        init_compiler(state.current_compiler, &compiler, &state.previous);
+        begin_scope();
+
+        compiler.func->arity = parse_function_args();
 
         consume(TOK_COLON, "expected ':'");
         consume(TOK_EOL, "expected '\\n'");
         consume(TOK_INDENT, "expected indent after function");
-
-        begin_scope();
         
-        while (!match(TOK_DEDENT)) {
+        while (!match(TOK_DEDENT) && !peek(TOK_EOF)) {
                 parse_declaration();
         }
         
         end_scope();
 
-        func = end_compiler();
-        function_value.value.o = (Que_Object *)func;
+        Que_ValueFunction(&function, end_compiler());
 
         emit(OP_PUSH);
-        emit_constant(&function_value);
+        emit_constant(&function);
         emit(OP_SET_GLOBAL);
-        func_identifier_value.type = QUE_TYPE_STRING;
-        func_identifier_value.value.o = (Que_Object *)func->name;
-        emit_constant(&func_identifier_value);
+        emit_constant(&identifier);
 }
 
 void parse_if_statement() {
@@ -501,7 +625,8 @@ void parse_expression_statement() {
 }
 
 void parse_return_statement() {
-        assert(0 && "not implemented");
+        parse_expression();
+        consume(TOK_EOL, "expected newline after return");
 }
 
 void parse_statement() {
@@ -536,7 +661,11 @@ void parse_declaration() {
 
 Que_FunctionObject *parser_parse() {
         Compiler c;
-        init_compiler(NULL, &c, SCOPE_SCRIPT, 0, state.filename, strlen(state.filename));
+        Token id;
+        id.type = TOK_IDENTIFIER;
+        id.start = "<script>";
+        id.length = strlen("<script>");
+        init_compiler(NULL, &c, &id);
 
         while (!match(TOK_EOF)) {
                 parse_declaration();

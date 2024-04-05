@@ -95,7 +95,12 @@ int Que_ExecuteString(Que_State *state, const char *str) {
                         tok.length = 2;
                 }
 
-                printf("[%s: %.*s]\n", TOKEN_NAMES[tok.type], (int)tok.length, tok.start);
+                printf("%zu, %zu [%s: %.*s]\n", 
+                        lexer_line(),
+                        lexer_col(),
+                        TOKEN_NAMES[tok.type],
+                        (int)tok.length, 
+                        tok.start);
 
                 if (tok.type == TOK_EOF) {
                         break;
@@ -124,7 +129,7 @@ Que_Type Que_GetType(Que_State *state, int offset) {
 }
 
 Que_Type Que_GetValue(Que_State *state, Que_Value *out_value, int offset) {
-        out_value = state->stack_top + offset;
+        *out_value = *(state->stack_top + offset);
         return Que_GetType(state, offset);
 }
 
@@ -283,6 +288,10 @@ int Que_GetGlobal(Que_State *state, const char *name) {
         }
 
         return QUE_FALSE;
+}
+
+Que_Value *Que_PopValue(Que_State *state) {
+        return --state->stack;
 }
 
 void Que_LoadTable(Que_State *state, Que_TableObject *table, const char *name) {

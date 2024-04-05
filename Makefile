@@ -1,6 +1,6 @@
-CC := clang
+CC := gcc
 
-CFLAGS := -Wall -Werror -pedantic -std=c90 -fsanitize=address,undefined -Iinclude/
+CFLAGS := -g -Wall -Werror -pedantic -std=c90 -fsanitize=address,undefined -Iinclude/
 LDFLAGS := -lm
 
 SRCS := main.c lexer.c chunk.c memory.c state.c value.c vm.c table.c parser.c io.c

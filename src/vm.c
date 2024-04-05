@@ -434,6 +434,13 @@ int vm_execute(Que_State *state) {
                         );
                 } break;
 
+                case OP_DEFINE_GLOBAL: {
+                        Que_Word addr = get_word(state);
+                        Que_Value key = GET_CONSTANT(addr);
+                        Que_Value *value = stack_pop(state);
+                        Que_TableInsert(state->globals, &key, value);
+                } break;
+
                 case OP_GET_GLOBAL: {
                         Que_Word addr = get_word(state);
                         Que_Value key = GET_CONSTANT(addr);
@@ -480,6 +487,7 @@ int vm_execute(Que_State *state) {
                         Que_Word args = get_word(state);
                         Que_Value *value;
 
+                        /* Might need -1 */
                         value = (state->stack_top - args - 1);
 
                         if (value->type == QUE_TYPE_CFUNCTION) {
@@ -487,8 +495,6 @@ int vm_execute(Que_State *state) {
                                 Que_CFunction cfunc = (Que_CFunction)value->value.o;
 
                                 ret = cfunc(state, args);
-
-                                puts("called");
 
                                 if (ret != 0) {
                                         Que_Value errorstr = *(state->stack_top - 2);
@@ -504,7 +510,7 @@ int vm_execute(Que_State *state) {
                                 assert(state->frame_current <= state->frames + state->max_recursion);
                                 state->frame_current->func = func;
                                 state->frame_current->ip = func->code.code;
-                                state->frame_current->slots = state->stack_top - args;
+                                state->frame_current->slots = state->stack_top - args - 1;
                         } else {
                                 error("Object type '%s' is not a function", QUE_TYPE_NAMES[value->type]);
                                 return -1;
@@ -542,6 +548,11 @@ int vm_execute(Que_State *state) {
                                 /* Halt execution */
                                 return 0;
                         }
+
+                        /* *state->frame_current->slots = *(state->stack_top); */
+                        /* Place the return value */
+                        printf("Type: %d\n", (state->stack_top - 1)->type);
+                        printf("Value: %ld\n", state->frame_current->slots[0].value.i);
 
                         state->frame_current--;
                 } break;

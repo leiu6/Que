@@ -11,8 +11,6 @@ int io_print(Que_State *state, int argc) {
                 return -1;
         }
 
-        
-
         switch (Que_GetValue(state, &val, -1)) {
         case QUE_TYPE_NIL:
                 puts("nil");
@@ -39,7 +37,6 @@ int io_print(Que_State *state, int argc) {
         } break;
 
         case QUE_TYPE_STRING: {
-                printf("%zu\n", ((Que_StringObject *)(val.value.o))->length);
                 puts(((Que_StringObject *)(val.value.o))->str);
         } break;
 

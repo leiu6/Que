@@ -281,6 +281,8 @@ void lexer_next(Token *out_token) {
                         return;
                 }
 
+                printf("'''%c'''\n", c);
+
                 token_simple(out_token, TOK_ERROR);
                 return;
         }

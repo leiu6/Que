@@ -59,13 +59,13 @@ Que_StringObject *allocate_string(const char *str, size_t length) {
         return obj;
 }
 
-Que_FunctionObject *allocate_function(int arity, const char *name, size_t namelength) {
+Que_FunctionObject *allocate_function(Que_Value *identifier) {
         Que_FunctionObject *obj = (Que_FunctionObject *)allocate_obj(
                 sizeof(Que_FunctionObject), QUE_TYPE_FUNCTION
         );
 
-        obj->arity = arity;
-        obj->name = allocate_string(name, namelength);
+        obj->arity = -1;
+        obj->name = (Que_StringObject *)identifier->value.o;
         chunk_init(&(obj->code));
 
         return obj;

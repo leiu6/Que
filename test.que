@@ -1,1 +1,9 @@
-print: 1, 2
+function two_args(arg1, arg2):
+    let local_to_func = 5
+    io.print(local_to_func)
+    io.print(arg1)
+    io.print(arg2)
+    return nil
+
+let retval = two_args("Hello", "Goodbye")
+io.print(retval)
