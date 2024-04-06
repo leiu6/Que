@@ -438,6 +438,7 @@ int vm_execute(Que_State *state) {
                         Que_Word addr = get_word(state);
                         Que_Value key = GET_CONSTANT(addr);
                         Que_Value *value = stack_pop(state);
+			
                         Que_TableInsert(state->globals, &key, value);
                 } break;
 
@@ -465,6 +466,7 @@ int vm_execute(Que_State *state) {
                                 /* We already have it */
                                 *existing = value;
                         } else {
+			        assert(0 && "Attempt to set nonexistent global");
                                 Que_TableInsert(state->globals, &key, &value);
                         }
                 } break;
@@ -549,10 +551,7 @@ int vm_execute(Que_State *state) {
                                 return 0;
                         }
 
-                        /* *state->frame_current->slots = *(state->stack_top); */
-                        /* Place the return value */
-                        printf("Type: %d\n", (state->stack_top - 1)->type);
-                        printf("Value: %ld\n", state->frame_current->slots[0].value.i);
+                        *state->frame_current->slots = *(state->stack_top);
 
                         state->frame_current--;
                 } break;

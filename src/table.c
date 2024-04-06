@@ -102,6 +102,30 @@ static void insert_at_end(TableEntry *begin, TableEntry *insert) {
         }
 }
 
+static TableEntry *table_contains(Que_TableObject *table, Que_Value *key) {
+	Hash hash = hash_value(key);
+        TableEntry *found = NULL;
+        Que_Byte row, col;
+
+        row = NTH_BYTE(hash, 0);
+        col = NTH_BYTE(hash, 1);
+
+        found = table->data[row][col];
+
+        if (found) {
+                while (found != NULL) {
+                        if (found->key == hash) {
+                                return found;
+                        } else {
+                                found = found->next;
+                        }
+                }
+                return NULL;
+        } else {
+                return NULL;
+        }
+}
+
 void Que_TableInsert(Que_TableObject *table, Que_Value *key, Que_Value *value) {
         Que_Byte row, col;
         Hash hash = hash_value(key);
@@ -117,7 +141,7 @@ void Que_TableInsert(Que_TableObject *table, Que_Value *key, Que_Value *value) {
         row = NTH_BYTE(hash, 0);
         col = NTH_BYTE(hash, 1);
 
-        found = table->data[row][col];
+        found = table_contains(table, key);
 
         if (found) {
                 insert_at_end(found, tab_entry);
@@ -150,25 +174,6 @@ void Que_TableQInsert(Que_TableObject *table, Que_Value *value, const char *key)
 }
 
 Que_Value *Que_TableGet(Que_TableObject *table, Que_Value *key) {
-        Hash hash = hash_value(key);
-        TableEntry *found = NULL;
-        Que_Byte row, col;
-
-        row = NTH_BYTE(hash, 0);
-        col = NTH_BYTE(hash, 1);
-
-        found = table->data[row][col];
-
-        if (found) {
-                while (found != NULL) {
-                        if (found->key == hash) {
-                                return &found->val;
-                        } else {
-                                found = found->next;
-                        }
-                }
-                return NULL;
-        } else {
-                return NULL;
-        }
+        TableEntry *entry = table_contains(table, key);
+	return (entry) ? &(entry->val) : NULL;
 }

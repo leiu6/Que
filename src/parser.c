@@ -499,8 +499,7 @@ void parse_expression() {
 
 static void parse_block();
 
-void declare_variable() {
-        Que_Value identifier;
+void declare_variable(void) {
 
         consume(TOK_IDENTIFIER, "expected identifier for variable");
 
@@ -518,22 +517,25 @@ void declare_variable() {
                 }
                 return;
         }
-
-        token_stringify(&identifier, &state.previous);
-
-        emit(OP_DEFINE_GLOBAL);
-        emit_constant(&identifier);
 }
 
-void define_variable() {
+void define_variable(Que_Value *identifier) {	
         parse_expression();
+
+	if (state.current_compiler->type == SCOPE_SCRIPT) {
+		emit(OP_DEFINE_GLOBAL);
+		emit_constant(identifier);
+	}
 }
 
 void parse_var_declaration() {
+	Que_Value identifier;
+	
         declare_variable();
+	token_stringify(&identifier, &state.previous);
 
         if (match(TOK_EQUAL)) {
-                define_variable();
+                define_variable(&identifier);
         } else {
                 emit(OP_PUSH_NIL);
         }
@@ -544,8 +546,6 @@ void parse_var_declaration() {
         if (state.current_compiler->type == SCOPE_FUNCTION) {
                 mark_local_initialized();
         }
-
-        printf("Type: %s\n", TOKEN_NAMES[state.current.type]);
 
         consume(TOK_EOL, "expected newline");
 }
@@ -597,7 +597,7 @@ void parse_function_declaration() {
 
         emit(OP_PUSH);
         emit_constant(&function);
-        emit(OP_SET_GLOBAL);
+        emit(OP_DEFINE_GLOBAL);
         emit_constant(&identifier);
 }
 
