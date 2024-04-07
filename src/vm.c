@@ -50,19 +50,6 @@ static Que_Word get_word(Que_State *state) {
         return (upper << 8) + lower;
 }
 
-static void stack_push(Que_State *state, Que_Value *val) {
-        /* TODO: check stack limits */
-        *state->stack_top++ = *val;
-
-        assert(state->stack_top <= state->stack + state->stack_size);
-}
-
-static Que_Value *stack_pop(Que_State *state) {
-        return (--state->stack_top);
-
-        assert(state->stack_top >= state->stack);
-}
-
 static void error(const char *format, ...) {
         va_list args;
 
@@ -504,6 +491,7 @@ int vm_execute(Que_State *state) {
 
                                         return ret;
                                 }
+
                         } else if (value->type == QUE_TYPE_FUNCTION) {
                                 Que_FunctionObject *func = ((Que_FunctionObject *)(state->stack_top - args - 1)->value.o);
                                 assert(func->ob_head.type == QUE_TYPE_FUNCTION);
@@ -546,12 +534,18 @@ int vm_execute(Que_State *state) {
                 } break;
 
                 case OP_RETURN: {
+                        Que_Value *result = stack_pop(state);
+
                         if (state->frame_current == state->frames) {
                                 /* Halt execution */
+                                stack_pop(state);
                                 return 0;
                         }
 
-                        *state->frame_current->slots = *(state->stack_top);
+                        state->stack_top = state->frame_current->slots;
+                        stack_push(state, result);
+
+                        /* *state->frame_current->slots = *(state->stack_top); */
 
                         state->frame_current--;
                 } break;

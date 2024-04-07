@@ -300,4 +300,6 @@ void Que_LoadTable(Que_State *state, Que_TableObject *table, const char *name) {
         tabval.value.o = (Que_Object *)table;
         *state->stack_top++ = tabval;
         Que_SetGlobal(state, -1, name);
+        /* Que_PopValue(state); */
+        /* Que_PopValue(state); */
 }

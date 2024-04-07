@@ -54,6 +54,8 @@ int io_print(Que_State *state, int argc) {
 
         }
 
+        Que_PushNil(state);
+
         return 0;
 }
 
