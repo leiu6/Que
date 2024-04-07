@@ -33,7 +33,7 @@ typedef double Que_Float;
 #elif __clang__
 #        define QUE_NORETURN __attribute__((noreturn))
 #elif _MSC_VER
-#        define QUE_NORETURN __attribute__((noreturn))
+#        define QUE_NORETURN __declspec(noreturn)
 #else
 #        define QUE_NORETURN
 #endif
