@@ -1,6 +1,8 @@
 {
         "files.associations": {
                 "*.h": "c",
-                "*.txt": "c"
+                "*.txt": "c",
+                "locale": "c",
+                "string": "c"
         }
 }

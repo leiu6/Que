@@ -1,7 +1,5 @@
-function my_func(arg1, arg2):
-    io.print(arg2)
-    io.print(arg1)
+function myname(name):
+    return name
 
-let val = my_func("Goodbye", "Hello")
-io.print(val)
-
+let retval = io.print(myname("Leighton"))
+io.print(retval)

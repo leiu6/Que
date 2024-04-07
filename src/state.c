@@ -75,6 +75,7 @@ int Que_ExecuteString(Que_State *state, const char *str) {
 
         io_bootstrap(state);
 
+#ifdef QUE_DEBUG_INSTRUCTIONS
         lexer_init(str);
         while (1) {
                 Token tok;
@@ -107,6 +108,7 @@ int Que_ExecuteString(Que_State *state, const char *str) {
                 }
         }
         puts("");
+#endif
 
 
         parser_init("<user>", str);
@@ -258,7 +260,7 @@ void Que_PushString(Que_State *state, const char *str) {
 void Que_PushCFunction(Que_State *state, Que_CFunction func) {
         Que_Value val;
         Que_ValueCFunction(&val, func);
-        stack_Push(state, &val);
+        stack_push(state, &val);
 }
 
 void Que_SetGlobal(Que_State *state, int offset, const char *name) {
@@ -275,7 +277,7 @@ int Que_GetGlobal(Que_State *state, const char *name) {
 
         if (val) {
                 /* TODO: add limits check */
-                stack_push(val);
+                stack_push(state, val);
                 return QUE_TRUE;
         }
 
@@ -289,8 +291,93 @@ Que_Value *Que_PopValue(Que_State *state) {
 void Que_LoadTable(Que_State *state, Que_TableObject *table, const char *name) {
         Que_Value tabval;
         Que_ValueTable(&tabval, table);
-        stack_push(&tabval);
+        stack_push(state, &tabval);
         Que_SetGlobal(state, -1, name);
         /* Que_PopValue(state); */
         /* Que_PopValue(state); */
+}
+
+void print_stack(Que_State *state, const char *title) {
+        Que_Value *cur;
+
+        printf("Stack: %s\n", title);
+        for (cur = state->stack; cur < state->stack_top; cur++) {
+                switch (cur->type) {
+                case QUE_TYPE_NIL:
+                        puts("[nil: nil]");
+                        break;
+
+                case QUE_TYPE_CHAR:
+                        printf("[char: %c]\n", cur->value.c);
+                        break;
+
+                case QUE_TYPE_BOOL: {
+                        if (cur->value.b) {
+                                puts("[bool: true]");
+                        } else {
+                        puts("[bool: false]");
+                        }
+                } break;
+
+                case QUE_TYPE_INT: {
+                        printf("[int: %lu]\n", cur->value.i);
+                } break;
+
+                case QUE_TYPE_FLOAT: {
+                        printf("[float: %f]\n", cur->value.f);
+                } break;
+
+                case QUE_TYPE_STRING: {
+                        printf("[string: %s]\n", ((Que_StringObject *)cur->value.o)->str);
+                } break;
+
+                case QUE_TYPE_TABLE: {
+                        printf("[table: %p]\n", (void*)cur->value.o);
+                } break;
+
+                case QUE_TYPE_FUNCTION: {
+                        printf("[function: %p]\n", (void*)cur->value.o);
+                } break;
+
+                case QUE_TYPE_CFUNCTION: {
+                        printf("[cfunction: %p]\n", (void*)cur->value.o);
+                } break;
+                }
+        }
+
+        puts("");
+}
+
+void stack_push(Que_State *state, Que_Value *val) {
+        /* TODO: check stack limits */
+        *state->stack_top++ = *val;
+
+#ifdef QUE_DEBUG_STACK
+        print_stack(state, "push");
+#endif
+
+        assert(state->stack_top <= state->stack + state->stack_size);
+}
+
+Que_Value *stack_pop(Que_State *state) {
+        Que_Value *result = --state->stack_top;
+        assert(state->stack_top >= state->stack);
+
+#ifdef QUE_DEBUG_STACK
+        print_stack(state, "pop");
+#endif
+
+        return result;
+}
+
+void stack_set(Que_State *state, int offset, Que_Value *value) {
+        state->stack_top[offset] = *value;
+
+#ifdef QUE_DEBUG_STACK
+        print_stack(state, "set");
+#endif
+}
+
+Que_Value *stack_peek(Que_State *state, int offset) {
+        return state->stack_top + offset;
 }

@@ -169,18 +169,21 @@ void begin_scope() {
 void end_scope() {
         state.current_compiler->scope_depth--;
 
-	while (state.current_compiler->local_count > 0 &&
+        /*
+	while (state.current_compiler->local_count > 1 &&
 	       state.current_compiler->locals[state.current_compiler->local_count - 1].depth >
 	       state.current_compiler->scope_depth) {
 		emit(OP_POP);
 		state.current_compiler->local_count--;
 	}
+        */
 }
 
 static Que_FunctionObject *end_compiler() {
         Que_FunctionObject *result = state.current_compiler->func;
 
         emit(OP_RETURN);
+        emit_word(result->arity);
 
 #ifdef QUE_DEBUG_INSTRUCTIONS
         printf("Function: %s\n", state.current_compiler->func->name->str);

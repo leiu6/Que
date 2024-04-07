@@ -481,7 +481,9 @@ int vm_execute(Que_State *state) {
 
                         if (value->type == QUE_TYPE_CFUNCTION) {
                                 int ret;
+                                int i;
                                 Que_CFunction cfunc = (Que_CFunction)value->value.o;
+                                Que_Value *retval;
 
                                 ret = cfunc(state, args);
 
@@ -491,6 +493,16 @@ int vm_execute(Que_State *state) {
 
                                         return ret;
                                 }
+
+                                retval = stack_pop(state);
+
+                                /* Pop args */
+                                for (i = 0; i < args; i++) {
+                                        stack_pop(state);
+                                }
+
+                                stack_pop(state); /* Function value itself */
+                                stack_push(state, retval); /* Function return value in it's place */
 
                         } else if (value->type == QUE_TYPE_FUNCTION) {
                                 Que_FunctionObject *func = ((Que_FunctionObject *)(state->stack_top - args - 1)->value.o);
@@ -534,16 +546,27 @@ int vm_execute(Que_State *state) {
                 } break;
 
                 case OP_RETURN: {
-                        Que_Value *result = stack_pop(state);
+                        Que_Value retval;
 
                         if (state->frame_current == state->frames) {
                                 /* Halt execution */
                                 stack_pop(state);
                                 return 0;
+                        } else {
+                                Que_Word arity = get_word(state);
+                                Que_Word i;
+
+                                retval = *stack_pop(state);
+
+                                for (i = 0; i < arity; i++) {
+                                        stack_pop(state);
+                                }
+
+                                stack_pop(state); /* Calling function */
+
+                                stack_push(state, &retval);
                         }
 
-                        state->stack_top = state->frame_current->slots;
-                        stack_push(state, result);
 
                         /* *state->frame_current->slots = *(state->stack_top); */
 

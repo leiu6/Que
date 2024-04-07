@@ -1,4 +1,4 @@
-CFLAGS := -g -Wall -Werror -pedantic -std=c89 -fsanitize=address,undefined -Iinclude/ -DQUE_DEBUG_INSTRUCTIONS
+CFLAGS := -g -Wall -Werror -pedantic -std=c89 -fsanitize=address,undefined -Iinclude/
 LDFLAGS := -lm
 
 SRCS := main.c lexer.c chunk.c memory.c state.c value.c vm.c table.c parser.c io.c
