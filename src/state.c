@@ -220,70 +220,62 @@ int Que_AsString(Que_State *state, int offset, char **out_str, size_t *out_lengt
 
 void Que_PushNil(Que_State *state) {
         Que_Value val;
-        val.type = QUE_TYPE_NIL;
-        val.value.o = NULL;
-        *state->stack_top++ = val;
+        Que_ValueNil(&val);
+        stack_push(state, &val);
 }
 
 void Que_PushChar(Que_State *state, char c) {
         Que_Value val;
-        val.type = QUE_TYPE_CHAR;
-        val.value.c = c;
-        *state->stack_top++ = val;
+        Que_ValueChar(&val, c);
+        stack_push(state, &val);
 }
 
 void Que_PushBool(Que_State *state, int b) {
         Que_Value val;
-        val.type = QUE_TYPE_BOOL;
-        val.value.b = b;
-        *state->stack_top++ = val;
+        assert(b == QUE_TRUE || b == QUE_FALSE);
+        Que_ValueBool(&val, b);
+        stack_push(state, &val);
 }
 
 void Que_PushInt(Que_State *state, Que_Int i) {
         Que_Value val;
-        val.type = QUE_TYPE_INT;
-        val.value.i = i;
-        *state->stack_top++ = val;
+        Que_ValueInt(&val, i);
+        stack_push(state, &val);
 }
 
 void Que_PushFloat(Que_State *state, Que_Float f) {
         Que_Value val;
-        val.type = QUE_TYPE_FLOAT;
-        val.value.f = f;
-        *state->stack_top++ = val;
+        Que_ValueFloat(&val, f);
+        stack_push(state, &val);
 }
 
 void Que_PushString(Que_State *state, const char *str) {
         Que_Value val;
-        val.type = QUE_TYPE_STRING;
-        val.value.o = (Que_Object *)allocate_string(str, strlen(str));
-        *state->stack_top++ = val;
+        Que_ValueString(&val, str, strlen(str));
+        stack_push(state, &val);
 }
 
 void Que_PushCFunction(Que_State *state, Que_CFunction func) {
         Que_Value val;
-        val.type = QUE_TYPE_CFUNCTION;
-        val.value.o = (Que_Object *)func;
-        *state->stack_top++ = val;
+        Que_ValueCFunction(&val, func);
+        stack_Push(state, &val);
 }
 
 void Que_SetGlobal(Que_State *state, int offset, const char *name) {
         Que_Value key;
-        key.type = QUE_TYPE_STRING;
-        key.value.o = (Que_Object *)allocate_string(name, strlen(name));
+        Que_ValueString(&key, name, strlen(name));
         Que_TableInsert(state->globals, &key, state->stack_top + offset);
 }
 
 int Que_GetGlobal(Que_State *state, const char *name) {
         Que_Value key, *val;
-        key.type = QUE_TYPE_STRING;
-        key.value.o = (Que_Object *)allocate_string(name, strlen(name));
+        Que_ValueString(&key, name, strlen(name));
 
         val = Que_TableGet(state->globals, &key);
 
         if (val) {
                 /* TODO: add limits check */
-                *(state->stack_top++) = *val;
+                stack_push(val);
                 return QUE_TRUE;
         }
 
@@ -291,14 +283,13 @@ int Que_GetGlobal(Que_State *state, const char *name) {
 }
 
 Que_Value *Que_PopValue(Que_State *state) {
-        return --state->stack;
+        return stack_pop(state);
 }
 
 void Que_LoadTable(Que_State *state, Que_TableObject *table, const char *name) {
         Que_Value tabval;
-        tabval.type = QUE_TYPE_TABLE;
-        tabval.value.o = (Que_Object *)table;
-        *state->stack_top++ = tabval;
+        Que_ValueTable(&tabval, table);
+        stack_push(&tabval);
         Que_SetGlobal(state, -1, name);
         /* Que_PopValue(state); */
         /* Que_PopValue(state); */
