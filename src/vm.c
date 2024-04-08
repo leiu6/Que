@@ -99,7 +99,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l + r);
 
@@ -130,7 +130,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l - r);
 
@@ -161,7 +161,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l * r);
 
@@ -192,7 +192,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l / r);
 
@@ -223,7 +223,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, powl(l, r));
 
@@ -266,7 +266,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l & r);
 
@@ -290,7 +290,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l | r);
 
@@ -314,7 +314,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l ^ r);
 
@@ -338,7 +338,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l << r);
 
@@ -362,7 +362,7 @@ int vm_execute(Que_State *state) {
                                 Que_Int l, r;
 
                                 l = lhs.value.i;
-                                r = lhs.value.i;
+                                r = rhs.value.i;
 
                                 Que_PushInt(state, l & r);
 
