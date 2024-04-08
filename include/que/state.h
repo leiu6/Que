@@ -69,4 +69,11 @@ int Que_GetGlobal(Que_State *state, const char *name);
 Que_Value *Que_PopValue(Que_State *state);
 void Que_LoadTable(Que_State *state, Que_TableObject *table, const char *name);
 
+typedef struct {
+        const char *name;
+        Que_CFunction callback;
+} Que_TableMethodDef;
+
+void Que_LoadLibrary(Que_State *state, Que_TableMethodDef *methods, const char *name);
+
 #endif /* QUE_STATE_H */

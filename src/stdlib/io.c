@@ -59,14 +59,11 @@ int io_print(Que_State *state, int argc) {
         return 0;
 }
 
+Que_TableMethodDef methods[] = {
+        { "print", io_print },
+        { NULL, NULL } /* Sentinel */
+};
+
 void io_bootstrap(Que_State *state) {
-        Que_TableObject *methods;
-        Que_Value method_print;
-
-        methods = Que_NewTable();
-
-        Que_ValueCFunction(&method_print, io_print);
-        Que_TableQInsert(methods, &method_print, "print");
-
-        Que_LoadTable(state, methods, "io");
+        Que_LoadLibrary(state, methods, "io");
 }

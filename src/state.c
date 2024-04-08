@@ -297,6 +297,28 @@ void Que_LoadTable(Que_State *state, Que_TableObject *table, const char *name) {
         /* Que_PopValue(state); */
 }
 
+void Que_LoadLibrary(Que_State *state, Que_TableMethodDef *methods, const char *name) {
+        Que_TableObject *table = Que_NewTable();
+        Que_TableMethodDef *cur = methods;
+
+        for (;;) {
+                Que_Value key, method;
+
+                /* Look for sentinel value */
+                if (cur->name == NULL || cur->callback == NULL) {
+                        break;
+                }
+
+                Que_ValueString(&key, cur->name, strlen(cur->name));
+                Que_ValueCFunction(&method, cur->callback);
+                Que_TableInsert(table, &key, &method);
+
+                cur++;
+        }
+
+        Que_LoadTable(state, table, name);
+}
+
 void print_stack(Que_State *state, const char *title) {
         Que_Value *cur;
 

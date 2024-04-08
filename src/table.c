@@ -7,8 +7,7 @@
 
 typedef unsigned long int Hash;
 
-#define QUE_TABLE_ROWS (QUE_BYTE_MAX + 1)
-#define QUE_TABLE_COLS (QUE_BYTE_MAX + 1)
+#define NUM_BUCKETS (QUE_BYTE_MAX + 1)
 
 typedef struct TableEntry {
         struct TableEntry *next;
@@ -19,7 +18,7 @@ typedef struct TableEntry {
 struct Que_TableObject {
         QUE_OBJECT_HEAD;
 
-        TableEntry *data[QUE_TABLE_ROWS][QUE_TABLE_COLS];
+        TableEntry *data[NUM_BUCKETS];
 };
 
 /* Hash function code from:
@@ -53,127 +52,104 @@ static Hash hash_value(Que_Value *value) {
 }
 
 Que_TableObject *Que_NewTable(void) {
-        Que_TableObject *table = (Que_TableObject *)allocate_obj(sizeof(Que_TableObject), QUE_TYPE_TABLE);
-        size_t i;
+        Que_TableObject *table = NULL;
 
-        for (i = 0; i < QUE_TABLE_ROWS; i++) {
-                size_t j;
-                for (j = 0; j < QUE_TABLE_COLS; j++) {
-                        table->data[i][j] = NULL;
-                }
-        }
+        table = ALLOCATE(table, sizeof(Que_TableObject));
+        memset(table->data, 0x00, sizeof(TableEntry *) * NUM_BUCKETS);
 
         return table;
 }
 
+static void bucket_delete(TableEntry *bucket) {
+        TableEntry *cur = bucket;
+
+        for (;;) {
+                TableEntry *next;
+
+                if (cur == NULL) {
+                        /* Reached end */
+                        return;
+                }
+
+                next = cur->next;
+                cur = FREE(cur, sizeof(TableEntry));
+                cur = next;
+        }
+}
+
 void Que_DeleteTable(Que_TableObject *table) {
         size_t i;
-        for (i = 0; i < QUE_TABLE_ROWS; i++) {
-                size_t j;
-                for (j = 0; j < QUE_TABLE_COLS; j++) {
-                        TableEntry *e = table->data[i][j];
-
-                        for (;;) {
-                                if (e) {
-                                        TableEntry *del = e;
-                                        e = e->next;
-                                        del = FREE(del, sizeof(TableEntry));
-                                } else {
-                                        break;
-                                }
-                        }
-                }
+        for (i = 0; i < NUM_BUCKETS; i++) {
+                bucket_delete(table->data[i]);
         }
 
         table = FREE(table, sizeof(Que_TableObject));
 }
 
-#define NTH_BYTE(num, n) \
-        ((num >> (8 * n)) & 0xff)
+#define getbucket(table, hash) (table->data[hash % NUM_BUCKETS])
 
-static void insert_at_end(TableEntry *begin, TableEntry *insert) {
-        TableEntry *e = begin;
+static void insert_at_end(TableEntry *bucket, Hash hash, Que_Value *value) {
+        TableEntry *cur = bucket;
+        TableEntry *prev = NULL;
+
         for (;;) {
-                if (e->next == NULL) {
-                        e->next = insert;
-                        break;
+                if (!cur) {
+                        TableEntry *insert = NULL;
+
+                        insert = ALLOCATE(insert, sizeof(TableEntry));
+                        insert->key = hash;
+                        insert->val = *value;
+                        insert->next = NULL;
+                        assert(prev);
+                        prev->next = insert;
+                        return;
                 }
-                e = e->next;
-        }
-}
 
-static TableEntry *table_contains(Que_TableObject *table, Que_Value *key) {
-	Hash hash = hash_value(key);
-        TableEntry *found = NULL;
-        Que_Byte row, col;
-
-        row = NTH_BYTE(hash, 0);
-        col = NTH_BYTE(hash, 1);
-
-        found = table->data[row][col];
-
-        if (found) {
-                while (found != NULL) {
-                        if (found->key == hash) {
-                                return found;
-                        } else {
-                                found = found->next;
-                        }
-                }
-                return NULL;
-        } else {
-                return NULL;
+                prev = cur;
+                cur = cur->next;
         }
 }
 
 void Que_TableInsert(Que_TableObject *table, Que_Value *key, Que_Value *value) {
-        Que_Byte row, col;
         Hash hash = hash_value(key);
-        TableEntry *tab_entry = NULL;
-        TableEntry *found = NULL;
 
-        tab_entry = ALLOCATE(tab_entry, sizeof(TableEntry));
-
-        tab_entry->key = hash;
-        tab_entry->next = NULL;
-        tab_entry->val = *value;
-
-        row = NTH_BYTE(hash, 0);
-        col = NTH_BYTE(hash, 1);
-
-        found = table_contains(table, key);
-
-        if (found) {
-                insert_at_end(found, tab_entry);
+        if (!getbucket(table, hash)) {
+                getbucket(table, hash) = ALLOCATE(NULL, sizeof(TableEntry));
+                getbucket(table, hash)->key = hash;
+                getbucket(table, hash)->val = *value;
+                getbucket(table, hash)->next = NULL;
+                return;
         } else {
-                table->data[row][col] = tab_entry;
+                insert_at_end(getbucket(table, hash), hash, value);
         }
 }
 
 void Que_TableQInsert(Que_TableObject *table, Que_Value *value, const char *key) {
-        Que_Byte row, col;
-        Hash hash = fnv_hash(key, strlen(key));
-        TableEntry *tab_entry = NULL;
-        TableEntry *found = NULL;
+        Que_Value str;
+        Que_ValueString(&str, key, strlen(key));
+        Que_TableInsert(table, &str, value);
+}
 
-        tab_entry = ALLOCATE(tab_entry, sizeof(TableEntry));
-        tab_entry->key = hash;
-        tab_entry->next = NULL;
-        tab_entry->val = *value;
+TableEntry *find_in_bucket(TableEntry *bucket, Hash hash) {
+        TableEntry *cur = bucket;
 
-        row = NTH_BYTE(hash, 0);
-        col = NTH_BYTE(hash, 1);
+        for (;;) {
+                if (!cur) {
+                        return NULL;
+                }
 
-        found = table->data[row][col];
+                if (cur->key == hash) {
+                        return cur;
+                }
 
-        if (found) {
-                insert_at_end(found, tab_entry);
-        } else {
-                table->data[row][col] = tab_entry;
+                cur = cur->next;
         }
 }
 
 Que_Value *Que_TableGet(Que_TableObject *table, Que_Value *key) {
-        TableEntry *entry = table_contains(table, key);
-	return (entry) ? &(entry->val) : NULL;
+        Hash hash = hash_value(key);
+        TableEntry *bucket = getbucket(table, hash);
+        TableEntry *found = find_in_bucket(bucket, hash);
+
+        return (found) ? &found->val : NULL;
 }
