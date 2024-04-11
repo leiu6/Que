@@ -274,10 +274,10 @@ void parser_init(const char *filename, const char *source) {
         state.current_compiler = NULL;
 }
 
-void parse_expression();
-void parse_primary();
+void parse_expression(void);
+void parse_primary(void);
 
-void parse_table_access() {
+void parse_table_access(void) {
         Token field = state.current;
         Que_Value v;
         consume(TOK_IDENTIFIER, "Expected identifier for table access");
@@ -291,7 +291,7 @@ void parse_table_access() {
         emit(OP_TABLE_GET);
 }
 
-void parse_primary() {
+void parse_primary(void) {
         if (match(TOK_INT)) {
                 Que_Value v;
                 v.type = QUE_TYPE_INT;
@@ -308,29 +308,46 @@ void parse_primary() {
                 Token identifier = state.previous;
 		int slot = resolve_local(&identifier);
 
-                if (slot == -1) {
-                        Que_Value str;
-                        token_stringify(&str, &identifier);
+                if (match(TOK_EQUAL)) {
+                        parse_expression();
 
-                        emit(OP_GET_GLOBAL);
-                        emit_constant(&str);
+                        if (slot == -1) {
+                                Que_Value str;
+                                token_stringify(&str, &identifier);
+
+                                emit(OP_SET_GLOBAL);
+                                emit_constant(&str);
+                        } else {
+                                emit(OP_SET_LOCAL);
+                                emit_word(slot);
+                        }
                 } else {
-                        emit(OP_GET_LOCAL);
-                        emit_word(slot);
+                        if (slot == -1) {
+                                Que_Value str;
+                                token_stringify(&str, &identifier);
+
+                                emit(OP_GET_GLOBAL);
+                                emit_constant(&str);
+                        } else {
+                                emit(OP_GET_LOCAL);
+                                emit_word(slot);
                 }
 
                 if (match(TOK_DOT)) {
                         parse_table_access();
                 }
+        }
 
         } else if (match(TOK_STRING)) {
                 Que_Value val;
+
                 val.type = QUE_TYPE_STRING;
                 val.value.o = (Que_Object *)allocate_string(state.previous.start, state.previous.length);
                 emit(OP_PUSH);
                 emit_constant(&val);
         } else if (match(TOK_CHAR)) {
                 Que_Value val;
+
                 val.type = QUE_TYPE_CHAR;
                 val.value.c = state.previous.start[0];
                 emit(OP_PUSH);
@@ -369,7 +386,7 @@ void parse_primary() {
         }
 }
 
-void parse_prefix() {
+void parse_prefix(void) {
         if (match(TOK_NOT)) {
                 parse_prefix();
                 emit(OP_NOT);
@@ -384,7 +401,7 @@ void parse_prefix() {
         }
 }
 
-void parse_multiply_divide() {
+void parse_multiply_divide(void) {
         parse_prefix();
 
         for (;;) {
@@ -400,7 +417,7 @@ void parse_multiply_divide() {
         }
 }
 
-void parse_add_subtract() {
+void parse_add_subtract(void) {
         parse_multiply_divide();
 
         for (;;) {
@@ -416,7 +433,7 @@ void parse_add_subtract() {
         }
 }
 
-void parse_shift() {
+void parse_shift(void) {
         parse_add_subtract();
 
         for (;;) {
@@ -432,7 +449,7 @@ void parse_shift() {
         }
 }
 
-void parse_comparison() {
+void parse_comparison(void) {
         parse_shift();
 
         for (;;) {
@@ -461,7 +478,7 @@ void parse_comparison() {
         }
 }
 
-void parse_bitwise_and_or_xor() {
+void parse_bitwise_and_or_xor(void) {
         parse_comparison();
 
         for (;;) {
@@ -480,10 +497,11 @@ void parse_bitwise_and_or_xor() {
         }
 }
 
-void parse_and_or() {
+void parse_and_or(void) {
         parse_bitwise_and_or_xor();
 
         for (;;) {
+
                 if (match(TOK_AND)) {
                         parse_bitwise_and_or_xor();
                         emit(OP_AND);
@@ -496,7 +514,7 @@ void parse_and_or() {
         }
 }
 
-void parse_expression() {
+void parse_expression(void) {
         parse_and_or();
 }
 

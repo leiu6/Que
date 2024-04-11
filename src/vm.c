@@ -444,7 +444,7 @@ int vm_execute(Que_State *state) {
                 case OP_SET_GLOBAL: {
                         Que_Word addr = get_word(state);
                         Que_Value key = GET_CONSTANT(addr);
-                        Que_Value value = *stack_pop(state);
+                        Que_Value value = *stack_peek(state, -1);
                         Que_Value *existing;
 
                         /* See if it is in the table or not */
@@ -461,7 +461,7 @@ int vm_execute(Que_State *state) {
                 case OP_SET_LOCAL: {
                         Que_Word slot = get_word(state);
                         Que_Value *local = &(state->frame_current->slots[slot]);
-                        Que_Value set_to = *stack_pop(state);
+                        Que_Value set_to = *stack_peek(state, -1);
                         *local = set_to;
                 } break;
 

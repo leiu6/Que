@@ -1,6 +1,7 @@
 #include "stdlibs.h"
 
 #include <stdio.h>
+#include <string.h>
 
 int io_print(Que_State *state, int argc) {
         Que_Value val;
@@ -59,8 +60,30 @@ int io_print(Que_State *state, int argc) {
         return 0;
 }
 
+int io_input(Que_State *state, int argc) {
+        char line[2];
+
+        if (argc != 0) {
+                Que_PushString(state, "io.input accepts no arguments");
+                Que_PushNil(state);
+                return -1;
+        }
+
+        if (!fgets(line, sizeof(line), stdin)) {
+                puts("");
+                Que_PushString(state, "input string was too long");
+                Que_PushNil(state);
+                return -1;
+        }
+        line[strcspn(line, "\n")] = 0;
+
+        Que_PushString(state, line);
+        return 0;
+}
+
 Que_TableMethodDef methods[] = {
         { "print", io_print },
+        { "input", io_input },
         { NULL, NULL } /* Sentinel */
 };
 
